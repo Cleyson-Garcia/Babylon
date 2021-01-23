@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+        <title>Babylon.js sample code</title>
+
+        <!-- Babylon.js -->
+        <script src="https://code.jquery.com/pep/0.4.2/pep.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+        <script src="https://preview.babylonjs.com/ammo.js"></script>
+        <script src="https://preview.babylonjs.com/cannon.js"></script>
+        <script src="https://preview.babylonjs.com/Oimo.js"></script>
+        <script src="https://preview.babylonjs.com/earcut.min.js"></script>
+        <script src="https://preview.babylonjs.com/babylon.js"></script>
+        <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+        <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+        <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+        <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+        <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+        <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+        <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+
+        <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+        </style>
+    </head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var engine = null;
+        var scene = null;
+        var sceneToRender = null;
+        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true }); };
+        var animateLever = false;
+        var count = 0;
+        var control = false;
+        var template;
+        var chao;
+
+        var createScene = function () {
+        var scene = new BABYLON.Scene(engine);
+
+        var camera1 = new BABYLON.ArcRotateCamera("Camera", 0, 0, 0, new BABYLON.Vector3(0, 0, 0), scene);
+        camera1.setPosition(new BABYLON.Vector3(0, 15, -20));
+        //camera1.inputs.remove(camera1.inputs.attached.mousewheel);
+        camera1.setTarget(BABYLON.Vector3.Zero());
+        camera1.attachControl(canvas, true);
+
+        var camera2 = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 0, -10), scene);
+        camera2.attachControl(canvas, true); 
+
+        var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+        light.intensity = 0.7;
+
+        scene.enablePhysics(new BABYLON.Vector3(0,-9.8,0), new BABYLON.AmmoJSPlugin());
+
+        chao = createGround();
+
+        var mortar = createMortar();
+        mortar.id = "mortar";
+
+        var lever = createIgnitor();
+
+        template = templateShell();
+
+        var UI = createUI(scene, mortar);
+
+        var controls = UI.getDescendants();
+        var container = [];
+        console.log(controls);
+        controls.forEach(function (control){
+            if(control.name == "container")
+                container.push(control);
+        });
+        console.log(container);
+    
+        //#region Controle
+        scene.registerBeforeRender(function () {
+            if(camera1.beta < 0.8){
+                camera1.beta = 0.8;
+            }else if(camera1.beta > 1.4){
+                camera1.beta = 1.4;
+            }
+        })
+    
+        scene.actionManager = new BABYLON.ActionManager(scene);
+        scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+            BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+                var key = evt.sourceEvent.key;
+                key = key.toUpperCase();
+
+                switch (key) {
+                    case 'C':
+                    if(scene.activeCamera == camera1){
+                        camera2.position = camera1.position;
+                        scene.activeCamera = camera2;
+                        camera2.setTarget(BABYLON.Vector3.Zero());
+                    }else{
+                        camera1.position = camera2.position;
+                        scene.activeCamera = camera1;
+                    }
+                    break;
+                    case 'H':
+                    container[0].isVisible = !container[0].isVisible;
+                    container[1].isVisible = !container[1].isVisible;
+            }
+          }
+        ));
+        scene.onPointerObservable.add(function (evt) {
+                if (evt.pickInfo.hit && evt.pickInfo.pickedMesh.id === "lever" && evt.event.button === 0) {
+                    animateLever = true;
+                }
+            }, BABYLON.PointerEventTypes.POINTERUP);
+          //#endregion
+    
+    return scene;
+};
+
+    function createUI(scene, mortar){
+        var pivots = scene.getMeshesByID("pivot");
+        var desc ="O Trabalho Apresentado É Um Morteiro\n\nPara mirar basta utilizar as barras localizadas nas áreas esquerda e embaixo.\n\nPara atirar deve selecionar com o mouse a alavanca ao lado da base.\n\nÉ possível utilizar a tecla 'C' para alterar a câmera. (Entre uma câmera focada no morteiro e uma câmera livre)";
+
+        var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("myUI");
+
+        //#region Controles
+        var panel = new BABYLON.GUI.StackPanel();
+        panel.width = "1000px";
+        panel.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+        panel.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+        panel.height = "100px";
+        advancedTexture.addControl(panel);
+
+        var header = new BABYLON.GUI.TextBlock();
+        header.text = "Rotation";
+        header.height = "50px";
+        header.fontSize = "30px";
+        header.color = "white";
+        panel.addControl(header);
+
+        var slider = new BABYLON.GUI.Slider();
+        slider.minimum = -Math.PI;
+        slider.maximum = Math.PI;
+        slider.value = 0;
+        slider.height = "30px";
+        slider.width = "1000px";
+        slider.onValueChangedObservable.add(function (value) {
+            if (mortar) {
+                mortar.rotation.y = value;
+            }
+        });
+        panel.addControl(slider);
+
+        var panel2 = new BABYLON.GUI.StackPanel();
+        panel2.height = "1000px";
+        panel2.width = "200px";
+        panel2.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        advancedTexture.addControl(panel2);
+
+        var header2 = new BABYLON.GUI.TextBlock();
+        header2.text = "Angle";
+        header2.height = "50px";
+        header2.fontSize = "30px";
+        header2.color = "white";
+        panel2.addControl(header2);
+
+        var slider2 = new BABYLON.GUI.Slider();
+        slider2.minimum = Math.PI / 12;
+        slider2.maximum = Math.PI / 4;
+        slider2.value = Math.PI / 6;
+        slider2.height = "1000px";
+        slider2.width = "30px";
+        slider2.isVertical = true;
+        slider2.onValueChangedObservable.add(function (value) {
+            pivots.forEach(function (mesh) {
+                mesh.rotation.x = value;
+            });
+
+        });
+        panel2.addControl(slider2); 
+
+        var panel3 = new BABYLON.GUI.StackPanel();
+        panel3.width = "1000px";
+        panel3.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+        panel3.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_UPPER;
+        panel3.height = "100px";
+        advancedTexture.addControl(panel3);
+
+        var header3 = new BABYLON.GUI.TextBlock();
+        header3.text = "CLEYSON GARCIA \n RA: 180967";
+        header3.height = "100px";
+        header3.fontSize = "30px";
+        header3.color = "white";
+        panel3.addControl(header3);
+        //#endregion
+
+        var container = new BABYLON.GUI.StackPanel();
+        container.width = 2;
+        container.height = 2;
+        container.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        container.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        var container2 = new BABYLON.GUI.StackPanel();
+        container2.width = 2;
+        container2.height = 2;
+        container2.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        container2.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+
+        var frame1 = new BABYLON.GUI.Rectangle();
+        frame1.width = 0.5;
+        frame1.height = 0.5;
+        frame1.background = "black";
+        frame1.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        frame1.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+
+        var manual = new BABYLON.GUI.TextBlock();
+        manual.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+        manual.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+        manual.text = desc;
+        manual.width = 0.5;
+        manual.height = 0.4;
+        manual.fontSize = "30px";
+        manual.color = "white";
+
+        container.isVisible = false;
+        container2.isVisible = false;
+        container.addControl(frame1);
+        container2.addControl(manual);
+
+        advancedTexture.addControl(container);
+        advancedTexture.addControl(container2);
+
+        container.name ="container";
+        container2.name ="container";
+
+        return advancedTexture;
+    }
+
+    function createMortar(){
+        var mortar = new BABYLON.Mesh("mortar", scene);
+        var circleBase = new BABYLON.Mesh("circleBase", scene);
+        var complete = new BABYLON.Mesh("complete", scene);
+        
+        var metal = new BABYLON.StandardMaterial("metal", scene);
+        metal.diffuseTexture = new BABYLON.Texture("./metal.jpg", scene);
+
+        var mortarBase = new BABYLON.Mesh("mortarBase", scene);
+        
+        var box1 = new BABYLON.MeshBuilder.CreateBox("baseMaior",{height: 0.5, width: 4, depth:4},scene);
+        box1.position.y = 0.25;
+        box1.material = metal;
+        mortarBase.addChild(box1);
+
+        var box2 = new BABYLON.MeshBuilder.CreateBox("suporte", { height: 0.6, width: 0.2, depth:1}, scene);
+        box2.position.x = -0.85;
+        box2.position.y = 0.9;
+        box2.material = metal;
+        mortarBase.addChild(box2);
+
+        var box3 = new BABYLON.MeshBuilder.CreateBox("suporte", { height: 0.6, width: 0.2, depth: 1 }, scene);
+        box3.position.x = 0.85;
+        box3.position.y = 0.9;
+        box3.material = metal;
+        mortarBase.addChild(box3);
+
+        var box4 = new BABYLON.MeshBuilder.CreateBox("baseMenor", { height: 0.3, width: 3, depth: 3 }, scene);
+        box4.position.y = 0.65;
+        box4.material = metal;
+        mortarBase.addChild(box4);
+
+        var cylinder = new BABYLON.MeshBuilder.CreateCylinder("parafusoLateral", { diameter: 0.25, height: 2 }, scene);
+        cylinder.rotation.z = Math.PI/2;
+        cylinder.position.y = 1;
+        cylinder.material = metal;
+        mortarBase.addChild(cylinder);
+
+        mortar.addChild(mortarBase);
+
+        var cylinder2 = new BABYLON.MeshBuilder.CreateCylinder("baseCircular", { diameter: 6, height: 0.2, tessellation:50 }, scene);
+        cylinder2.position.y = 0.1;
+        cylinder2.material = metal;
+        circleBase.addChild(cylinder2);
+       
+        var mortarBody = new BABYLON.MeshBuilder.CreateCylinder("mortarBody",{ diameter: 1.5, height: 3.5 }, scene);
+        mortarBody.material = metal;
+        mortar.addChild(mortarBody);
+        var pivot = BABYLON.Mesh.CreateSphere("pivot", 1, 0.1, scene);
+        pivot.isVisible = false;
+        pivot.position.set(0, -0.5, 0);
+        pivot.addChild(mortarBody);
+        pivot.position.y = 1;
+        pivot.rotation.x = Math.PI / 6;
+        mortar.addChild(pivot);
+
+        complete.addChild(mortar);
+        complete.addChild(circleBase);
+        return mortar;
+    };
+
+    function createGround(){
+        var grass = new BABYLON.StandardMaterial("grass", scene);
+        grass.diffuseTexture = new BABYLON.Texture("./grass.jpg", scene);
+        grass.diffuseTexture.vScale=15;
+        grass.diffuseTexture.uScale=15;
+
+        var ground1 = BABYLON.MeshBuilder.CreateBox("ground", { width: 1000, depth: 1000, height: 0.01 }, scene);
+        ground1.material = grass;
+
+        return ground1;
+    }
+
+    function createIgnitor(){
+        var lever = new BABYLON.Mesh("lever", scene);
+        var handle = new BABYLON.Mesh("handle", scene);
+
+        var metal = new BABYLON.StandardMaterial("metal", scene);
+        metal.diffuseTexture = new BABYLON.Texture("./metal.jpg", scene);
+
+        var box = new BABYLON.MeshBuilder.CreateBox("lever", { height: 0.5, width: 0.5, depth: 0.5 }, scene);
+        box.position.x = 4;
+        box.position.y = 0.25;
+        box.material = metal;
+        lever.addChild(box);
+
+        var cylinder1 = new BABYLON.MeshBuilder.CreateCylinder("lever",{ diameter: 0.15, height: 0.4},scene);
+        cylinder1.position.x = 4;
+        cylinder1.position.y = 0.7;
+        cylinder1.material = metal;
+        handle.addChild(cylinder1);
+
+        var cylinder2 = new BABYLON.MeshBuilder.CreateCylinder("lever",{ diameter: 0.15, height: 0.6},scene);
+        cylinder2.rotation.z = Math.PI / 2;
+        cylinder2.position.x = 4;
+        cylinder2.position.y = 0.9;
+        cylinder2.material = metal;
+        handle.addChild(cylinder2);
+        lever.addChild(handle);
+
+        return lever;
+    }
+
+    function templateShell(){
+        //var capsule = new BABYLON.MeshBuilder.CreateCapsule("capsule", { radius: 0.5, capSubdivisions: 1, height: 2, tessellation: 8, topCapSubdivisions: 16 });
+        var capsule = new BABYLON.MeshBuilder.CreateSphere("sphere", {});
+        var myMaterial = new BABYLON.StandardMaterial("myMaterial", scene);
+        myMaterial.diffuseColor = new BABYLON.Color3(0,0,0);
+        capsule.position.y = 5;
+        capsule.isVisible = false;
+        capsule.material = myMaterial;
+
+        return capsule;
+    }
+
+    function launchShell(){
+        var box = new BABYLON.MeshBuilder.CreateBox("box", { size: 0.05 }, scene);
+        var body = scene.getMeshesByID("pivot");
+        var body2 = scene.getMeshesByID("mortar");
+        var shell = template.clone();
+        shell.isVisible = true;
+        body.forEach(function(mesh) {
+            shell.rotation.x = mesh.rotation.x;
+            shell.position.y = mesh.position.y;
+
+        });
+        body2.forEach(function (mesh) {
+            shell.rotation.y = mesh.rotation.y;
+        });
+        shell.physicsImpostor = new BABYLON.PhysicsImpostor(shell, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 2, friction: 0.5, restitution: 0 }, scene);
+        shell.physicsImpostor.applyImpulse(shell.up.scale(60), BABYLON.Vector3.Zero());
+
+        shell.actionManager = new BABYLON.ActionManager(scene);
+        shell.actionManager.registerAction(
+            new BABYLON.ExecuteCodeAction(
+                {
+                    trigger: BABYLON.ActionManager.OnIntersectionEnterTrigger,
+                    parameter: chao
+                },
+                function () {
+                    BABYLON.ParticleHelper.CreateAsync("explosion", scene).then((set) => {
+                        box.position = shell.position;
+                        shell.dispose();
+                        set.systems.forEach(s => {
+                            s.emitter = box;
+                            s.disposeOnStop = true;
+                        });
+                        set.start();
+                        
+                    });
+                    
+                }
+            )
+        );
+    };
+
+    function loop() {
+        var lever = scene.getMeshesByID("handle");
+        
+        lever.forEach(function (mesh) {
+            if(animateLever === true && count < 30 && control === false){
+                mesh.position.y -= 0.01;
+                count++;
+            }else if (count == 30){
+                control = true;
+                count--;
+                mesh.position.y += 0.01;
+                launchShell();
+            } else if (control === true && count === 0){
+                control = false;
+                animateLever = false;
+            }else if(control === true){
+                mesh.position.y += 0.01;
+                count--;
+            }
+        });
+    }
+
+    var engine;
+    try {
+    engine = createDefaultEngine();
+    } catch(e) {
+    console.log("the available createEngine function failed. Creating the default engine instead");
+    engine = createDefaultEngine();
+    }
+        if (!engine) throw 'engine should not be null.';
+        scene = createScene();;
+        sceneToRender = scene
+
+        engine.runRenderLoop(function () {
+            if (sceneToRender && sceneToRender.activeCamera) {
+                loop();
+                sceneToRender.render();
+            }
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>

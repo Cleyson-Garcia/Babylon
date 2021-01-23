@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+    <title>Babylon.js sample code</title>
+
+    <!-- Babylon.js -->
+    <script src="https://code.jquery.com/pep/0.4.2/pep.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
+    <script src="https://preview.babylonjs.com/ammo.js"></script>
+    <script src="https://preview.babylonjs.com/cannon.js"></script>
+    <script src="https://preview.babylonjs.com/Oimo.js"></script>
+    <script src="https://preview.babylonjs.com/libktx.js"></script>
+    <script src="https://preview.babylonjs.com/earcut.min.js"></script>
+    <script src="https://preview.babylonjs.com/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+    <script src="https://preview.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    <script src="https://preview.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+    <script src="https://preview.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.js"></script>
+    <script src="https://preview.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+    <script src="https://preview.babylonjs.com/gui/babylon.gui.min.js"></script>
+
+    <style>
+      html,
+      body {
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+
+      #renderCanvas {
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+      //#region Constante
+      var canvas = document.getElementById("renderCanvas");
+
+      var engine = null;
+      var scene = null;
+      var sceneToRender = null;
+      var createDefaultEngine = function () {
+        return new BABYLON.Engine(canvas, true, {
+          preserveDrawingBuffer: true,
+          stencil: true,
+        });
+      };
+      
+      var redColor;
+      var yellowColor;
+      
+      var createScene = function () {
+        // Create the scene space
+        var scene = new BABYLON.Scene(engine);
+
+        var camera = new BABYLON.ArcRotateCamera("ArcRotateCamera", new BABYLON.Vector3.Zero, scene);
+        camera.setTarget(new BABYLON.Vector3(-30, 0, 0));
+        camera.setPosition(new BABYLON.Vector3(-32, 2, 5));
+        camera.attachControl(canvas, true);
+        // Add lights to the scene
+        var light1 = new BABYLON.DirectionalLight(
+          "DirectionalLight",
+          new BABYLON.Vector3(1, -1, 0),
+          scene
+        );
+        var light2 = new BABYLON.DirectionalLight(
+          "DirectionalLight",
+          new BABYLON.Vector3(-1, -1, 0),
+          scene
+        );
+        var light3 = new BABYLON.DirectionalLight(
+          "DirectionalLight",
+          new BABYLON.Vector3(0, -1, 1),
+          scene
+        );
+        var light4 = new BABYLON.DirectionalLight(
+          "DirectionalLight",
+          new BABYLON.Vector3(0, -1, -1),
+          scene
+        );
+        light1.intensity = 0.5;
+        light2.intensity = 0.5;
+        light3.intensity = 0.5;
+        light4.intensity = 0.5;
+        //#endregion
+
+        //#region Controle da Camera
+        scene.actionManager = new BABYLON.ActionManager(scene);
+        scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
+          BABYLON.ActionManager.OnKeyDownTrigger, function(evt){
+            var key = evt.sourceEvent.key;
+            key = key.toUpperCase();
+
+            switch(key){
+              case '1':
+                camera.setTarget(new BABYLON.Vector3(-30, 0, 0));
+                camera.setPosition(new BABYLON.Vector3(-32, 2, 5));
+                break;
+              case '2':
+                camera.setTarget(new BABYLON.Vector3(-10, 0, 0));
+                camera.setPosition(new BABYLON.Vector3(-12, 2, 5));
+                break;
+              case '3':
+                camera.setTarget(new BABYLON.Vector3(10, 0, 0));
+                camera.setPosition(new BABYLON.Vector3(8, 2, 5));
+                break;
+              case '4':
+                camera.setTarget(new BABYLON.Vector3(30, 0, 0));
+                camera.setPosition(new BABYLON.Vector3(28, 2, 5));
+                break;
+              case '5':
+                camera.setTarget(new BABYLON.Vector3(-30, 20, 0));
+                camera.setPosition(new BABYLON.Vector3(-32, 22, 5));
+                break;
+              case '6':
+                camera.setTarget(new BABYLON.Vector3(-10, 20, 0));
+                camera.setPosition(new BABYLON.Vector3(-12, 22, 5));
+                break;
+              case '7':
+                camera.setTarget(new BABYLON.Vector3(10, 20, 0));
+                camera.setPosition(new BABYLON.Vector3(8, 22, 5));
+                break;
+              case '8':
+                camera.setTarget(new BABYLON.Vector3(30, 20, 0));
+                camera.setPosition(new BABYLON.Vector3(28, 22, 5));
+                break;
+            }
+          }
+        ));
+        //#endregion
+
+        scene.fogMode = BABYLON.Scene.FOGMODE_EXP;
+        scene.fogColor = new BABYLON.Color3(0.67, 0.84, 0.92);
+        scene.fogDensity = 0.03;
+
+        var skybox = BABYLON.MeshBuilder.CreateBox("skyBox", { size: 1000.0 }, scene);
+        var skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+        skyboxMaterial.backFaceCulling = false;
+        skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("http://www.babylonjs-playground.com/textures/skybox", scene);
+        skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+        skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+        skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+        skybox.material = skyboxMaterial;
+
+        //Color Setup
+        redColor = new BABYLON.StandardMaterial("redColor", scene);
+        redColor.diffuseColor = new BABYLON.Color3(1, 0, 0);
+        yellowColor = new BABYLON.StandardMaterial("yellowColor", scene);
+        yellowColor.diffuseColor = new BABYLON.Color3(1, 1, 0);
+
+        var atomo1 = createAtom1();
+        var atomo2 = createAtom2();
+        var atomo3 = createAtom3();
+        var atomo4 = createAtom4();
+        var atomo5 = createAtom5();
+        var atomo6 = createAtom6();
+        var atomo7 = createAtom7();
+        var atomo8 = createAtom8();
+
+        return scene;
+      };
+
+      function createAtom1() {
+        var atom = new BABYLON.Mesh("atomo",scene);
+        var core = new BABYLON.Mesh("core", scene);
+        var proton = BABYLON.MeshBuilder.CreateSphere("proton",{diameter:0.3},scene); 
+        proton.material = redColor;
+        core.addChild(proton);
+        atom.addChild(core);
+        atom.addChild(createBelt(1, 1));
+        atom.addChild(addElement(1));
+        atom.position = new BABYLON.Vector3(-30,0,0);
+        return atom;
+      }
+
+      function createAtom2() {
+        var atom = new BABYLON.Mesh("atomo", scene);
+        var core = new BABYLON.Mesh("core", scene);
+        var protons = []
+        var neutrons = [];
+        atom.addChild(addElement(2));(2);
+        for(var i = 0; i < 2; i++)
+        {
+          protons[i] = BABYLON.MeshBuilder.CreateSphere("proton", { diameter: 0.3 }, scene);
+          protons[i].material = redColor;
+          core.addChild(protons[i]);
+        }
+        for (var i = 0; i < 2; i++) {
+          neutrons[i] = BABYLON.MeshBuilder.CreateSphere("neutron", { diameter: 0.3 }, scene);
+          neutrons[i].material = yellowColor;
+          core.addChild(neutrons[i]);
+        }
+        
+        protons[1].position.x = 0.2;
+
+        neutrons[0].position.x = -0.2;
+        neutrons[1].position.y = -0.2;
+
+        atom.addChild(core);
+        atom.addChild(createBelt(1, 2));
+        atom.position = new BABYLON.Vector3(-10, 0, 0);
+        return atom;
+      }
+
+      function createAtom3() {
+        var atom = new BABYLON.Mesh("atomo", scene);
+        var core = new BABYLON.Mesh("core", scene);
+        var protons = []
+        var neutrons = [];
+        atom.addChild(addElement(3));(3);
+
+        for (var i = 0; i < 3; i++) {
+          protons[i] = BABYLON.MeshBuilder.CreateSphere("proton", { diameter: 0.3 }, scene);
+          protons[i].material = redColor;
+          core.addChild(protons[i]);
+        }
+        for (var i = 0; i < 4; i++) {
+          neutrons[i] = BABYLON.MeshBuilder.CreateSphere("neutron", { diameter: 0.3 }, scene);
+          neutrons[i].material = yellowColor;
+          core.addChild(neutrons[i]);
+        }
+
+        protons[1].position.x = 0.2;
+        protons[2].position.y = 0.2;        
+
+        neutrons[0].position.x = -0.2;
+        neutrons[1].position.y = -0.2;
+        neutrons[2].position.z = 0.15;
+        neutrons[3].position.z = -0.15;
+
+        atom.addChild(core);
+        atom.addChild(createBelt(1, 2));
+        atom.addChild(createBelt(2, 1));
+        atom.position = new BABYLON.Vector3(10, 0, 0);
+        return atom;
+      }
+
+      function createAtom4() {
+        var atom = new BABYLON.Mesh("atomo", scene);
+        var core = new BABYLON.Mesh("core", scene);
+        var protons = []
+        var neutrons = [];
+        atom.addChild(addElement(4));(4);
+
+        for (var i = 0; i < 4; i++) {
+          protons[i] = BABYLON.MeshBuilder.CreateSphere("proton", { diameter: 0.3 }, scene);
+          protons[i].material = redColor;
+          core.addChild(protons[i]);
+        }
+        for (var i = 0; i < 5; i++) {
+          neutrons[i] = BABYLON.MeshBuilder.CreateSphere("neutron", { diameter: 0.3 }, scene);
+          neutrons[i].material = yellowColor;
+          core.addChild(neutrons[i]);
+        }
+
+        protons[1].position.x = 0.2;
+        protons[2].position.y = 0.2;
+        protons[3].position.y = -0.2;
+        protons[3].position.x = -0.2;
+
+        neutrons[0].position.x = -0.2;
+        neutrons[1].position.y = -0.2;
+        neutrons[2].position.z = 0.15;
+        neutrons[3].position.z = -0.15;
+        neutrons[4].position.x = 0.2;
+        neutrons[4].position.y = 0.15;
+
+        atom.addChild(core);
+        atom.addChild(createBelt(1, 2));
+        atom.addChild(createBelt(2, 2));
+        atom.position = new BABYLON.Vector3(30, 0, 0);
+        return atom;
+      }
+
+      function createAtom5() {
+        var atom = new BABYLON.Mesh("atomo", scene);
+        var core = new BABYLON.Mesh("core", scene);
+        var protons = []
+        var neutrons = [];
+        atom.addChild(addElement(5));(5);
+
+        for (var i = 0; i < 5; i++) {
+          protons[i] = BABYLON.MeshBuilder.CreateSphere("proton", { diameter: 0.3 }, scene);
+          protons[i].material = redColor;
+          core.addChild(protons[i]);
+        }
+        for (var i = 0; i < 5; i++) {
+          neutrons[i] = BABYLON.MeshBuilder.CreateSphere("neutron", { diameter: 0.3 }, scene);
+          neutrons[i].material = yellowColor;
+          core.addChild(neutrons[i]);
+        }
+
+        protons[1].position.x = 0.2;
+        protons[2].position.y = 0.2;
+        protons[3].position.y = -0.2;
+        protons[3].position.x = -0.2;
+        protons[4].position.y = -0.2;
+        protons[4].position.x = 0.2;
+        protons[4].position.z = 0.15;
+
+        neutrons[0].position.x = -0.2;
+        neutrons[1].position.y = -0.2;
+        neutrons[2].position.z = 0.15;
+        neutrons[3].position.z = -0.15;
+        neutrons[4].position.x = 0.2;
+        neutrons[4].position.y = 0.2;
+
+        atom.addChild(core);
+        atom.addChild(createBelt(1, 2));
+        atom.addChild(createBelt(2, 3));
+        atom.position = new BABYLON.Vector3(-30, 20, 0);
+        return atom;
+      }
+
+      function createAtom6() {
+        var atom = new BABYLON.Mesh("atomo", scene);
+        var core = new BABYLON.Mesh("core", scene);
+        var protons = []
+        var neutrons = [];
+        atom.addChild(addElement(6));(6);
+
+        for (var i = 0; i < 6; i++) {
+          protons[i] = BABYLON.MeshBuilder.CreateSphere("proton", { diameter: 0.3 }, scene);
+          protons[i].material = redColor;
+          core.addChild(protons[i]);
+        }
+        for (var i = 0; i < 6; i++) {
+          neutrons[i] = BABYLON.MeshBuilder.CreateSphere("neutron", { diameter: 0.3 }, scene);
+          neutrons[i].material = yellowColor;
+          core.addChild(neutrons[i]);
+        }
+
+        protons[1].position.x = 0.2;
+
+        protons[2].position.y = 0.2;
+
+        protons[3].position.y = -0.2;
+        protons[3].position.x = -0.2;
+        protons[3].position.z = -0.15;
+
+        protons[4].position.y = -0.2;
+        protons[4].position.x = 0.2;
+        protons[4].position.z = 0.15;
+
+        protons[5].position.x = -0.2;
+        protons[5].position.y = -0.2;
+        protons[5].position.z = 0.15;
+
+        neutrons[0].position.x = -0.2;
+
+        neutrons[1].position.y = -0.2;
+
+        neutrons[2].position.z = 0.15;
+
+        neutrons[3].position.z = -0.15;
+
+        neutrons[4].position.x = 0.2;
+        neutrons[4].position.y = 0.2;
+
+        neutrons[5].position.y = 0.2;
+        neutrons[5].position.z = 0.15;
+
+        atom.addChild(core);
+        atom.addChild(createBelt(1, 2));
+        atom.addChild(createBelt(2, 4));
+        atom.position = new BABYLON.Vector3(-10, 20, 0);
+        return atom;
+      }
+
+      function createAtom7() {
+        var atom = new BABYLON.Mesh("atomo", scene);
+        var core = new BABYLON.Mesh("core", scene);
+        var protons = []
+        var neutrons = [];
+        atom.addChild(addElement(7));(7);
+
+        for (var i = 0; i < 7; i++) {
+          protons[i] = BABYLON.MeshBuilder.CreateSphere("proton", { diameter: 0.3 }, scene);
+          protons[i].material = redColor;
+          core.addChild(protons[i]);
+        }
+        for (var i = 0; i < 7; i++) {
+          neutrons[i] = BABYLON.MeshBuilder.CreateSphere("neutron", { diameter: 0.3 }, scene);
+          neutrons[i].material = yellowColor;
+          core.addChild(neutrons[i]);
+        }
+
+        protons[1].position.x = 0.2;
+
+        protons[2].position.y = 0.2;
+
+        protons[3].position.y = -0.2;
+        protons[3].position.x = -0.2;
+        protons[3].position.z = -0.15;
+
+        protons[4].position.y = -0.2;
+        protons[4].position.x = 0.2;
+        protons[4].position.z = 0.15;
+
+        protons[5].position.x = -0.2;
+        protons[5].position.y = -0.2;
+        protons[5].position.z = 0.15;
+
+        protons[6].position.y = 0.2;
+        protons[6].position.z = -0.15;
+
+        neutrons[0].position.x = -0.2;
+
+        neutrons[1].position.y = -0.2;
+
+        neutrons[2].position.z = 0.15;
+
+        neutrons[3].position.z = -0.15;
+
+        neutrons[4].position.x = 0.2;
+        neutrons[4].position.y = 0.2;
+
+        neutrons[5].position.y = 0.2;
+        neutrons[5].position.z = 0.15;
+
+        neutrons[6].position.y = -0.2;
+        neutrons[6].position.z = -0.15;
+
+        atom.addChild(core);
+        atom.addChild(createBelt(1, 2));
+        atom.addChild(createBelt(2, 5));
+        atom.position = new BABYLON.Vector3(10, 20, 0);
+        return atom;
+      }
+
+      function createAtom8() {
+        var atom = new BABYLON.Mesh("atomo", scene);
+        var core = new BABYLON.Mesh("core", scene);
+        var protons = []
+        var neutrons = [];
+        atom.addChild(addElement(8));(8);
+
+        for (var i = 0; i < 8; i++) {
+          protons[i] = BABYLON.MeshBuilder.CreateSphere("proton", { diameter: 0.3 }, scene);
+          protons[i].material = redColor;
+          core.addChild(protons[i]);
+        }
+        for (var i = 0; i < 8; i++) {
+          neutrons[i] = BABYLON.MeshBuilder.CreateSphere("neutron", { diameter: 0.3 }, scene);
+          neutrons[i].material = yellowColor;
+          core.addChild(neutrons[i]);
+        }
+
+        protons[1].position.x = 0.2;
+
+        protons[2].position.y = 0.2;
+
+        protons[3].position.y = -0.2;
+        protons[3].position.x = -0.2;
+        protons[3].position.z = -0.15;
+
+        protons[4].position.y = -0.2;
+        protons[4].position.x = 0.2;
+        protons[4].position.z = 0.15;
+
+        protons[5].position.x = -0.2;
+        protons[5].position.y = -0.2;
+        protons[5].position.z = 0.15;
+
+        protons[6].position.y = 0.2;
+        protons[6].position.z = -0.15;
+
+        protons[7].position.x = -0.2;
+        protons[7].position.y = -0.2;
+
+        neutrons[0].position.x = -0.2;
+
+        neutrons[1].position.y = -0.2;
+
+        neutrons[2].position.z = 0.15;
+
+        neutrons[3].position.z = -0.15;
+
+        neutrons[4].position.x = 0.2;
+        neutrons[4].position.y = 0.2;
+
+        neutrons[5].position.y = 0.2;
+        neutrons[5].position.z = 0.15;
+
+        neutrons[6].position.y = -0.2;
+        neutrons[6].position.z = -0.15;
+        
+        neutrons[7].position.x = 0.2;
+        neutrons[7].position.y = -0.2;
+
+        atom.addChild(core);
+        atom.addChild(createBelt(1, 2));
+        atom.addChild(createBelt(2, 6));
+        atom.position = new BABYLON.Vector3(30, 20, 0);
+        return atom;
+      }
+
+      function createBelt(tamanho, quantidade) {
+        var belt = new BABYLON.Mesh("belt", scene);
+        var myMaterial = new BABYLON.StandardMaterial("myMaterial", scene);
+        myMaterial.diffuseColor = new BABYLON.Color3(0, 0, 1);
+        
+        var myPoints = [];
+        var deltaTheta = 0.1;
+        var theta = 0;
+
+        var angle = 0;
+        var incAngle = Math.PI / (quantidade / 2);
+
+        if(tamanho%2 == 1){
+          for (var i = 0; i < 100; i++) {
+            myPoints.push(new BABYLON.Vector3(tamanho * Math.cos(theta), 0, tamanho * Math.sin(theta)));
+            theta += deltaTheta;
+          }
+          var lines = BABYLON.MeshBuilder.CreateLines("lines", { points: myPoints }, scene); 
+          belt.addChild(lines);
+
+          for (var i = 0; i < quantidade; i++) {
+            var x = Math.sin(angle) * tamanho;
+            var z = Math.cos(angle) * tamanho;
+            angle = angle + incAngle;
+
+            var eletron = BABYLON.MeshBuilder.CreateSphere("eletron", { diameter: 0.15 }, scene);
+            eletron.material = myMaterial;
+
+            eletron.position.x = x;
+            eletron.position.z = z;
+            eletron.rotation.y = i * incAngle;
+
+            belt.addChild(eletron);
+            belt.id = "innerBelt";
+          }
+        }else{
+          for (var i = 0; i < 100; i++) {
+            myPoints.push(new BABYLON.Vector3(0, tamanho * Math.cos(theta), tamanho * Math.sin(theta)));
+            theta += deltaTheta;
+          }
+          var lines = BABYLON.MeshBuilder.CreateLines("lines", { points: myPoints }, scene);
+          belt.addChild(lines);
+
+          for (var i = 0; i < quantidade; i++) {
+            var y = Math.sin(angle) * tamanho;
+            var z = Math.cos(angle) * tamanho;
+            angle = angle + incAngle;
+
+            var eletron = BABYLON.MeshBuilder.CreateSphere("eletron", { diameter: 0.15 }, scene);
+            eletron.material = myMaterial;
+
+            eletron.position.y = y;
+            eletron.position.z = z;
+
+            belt.addChild(eletron);
+            belt.id = "outerBelt"
+          }
+        }
+
+        return belt;
+      }
+
+      function addElement(path){
+        var element = BABYLON.MeshBuilder.CreateGround("ground", { width: 4, height: 5 }, scene);
+        element.rotation.y = Math.PI;
+        element.rotation.x = 3 * Math.PI / 2;
+        element.position = new BABYLON.Vector3(0, -1, -2);
+        var elementMaterial = new BABYLON.StandardMaterial("element");
+        elementMaterial.diffuseTexture = new BABYLON.Texture("/AC2/"+path+".jpg", scene);
+        element.material = elementMaterial;
+        return element;
+      }
+
+      function loop() {
+        var interior = scene.getMeshesByID("innerBelt");
+        var exterior = scene.getMeshesByID("outerBelt");
+
+        interior.forEach(function (mesh) {
+          mesh.rotation.y += 0.05;
+        });
+
+        exterior.forEach(function (mesh) {
+          mesh.rotation.x += 0.05;
+        });
+      }
+
+      var engine;
+      try {
+        engine = createDefaultEngine();
+      } catch (e) {
+        console.log(
+          "the available createEngine function failed. Creating the default engine instead"
+        );
+        engine = createDefaultEngine();
+      }
+      if (!engine) throw "engine should not be null.";
+      scene = createScene();
+      sceneToRender = scene;
+
+      engine.runRenderLoop(function () {
+        if (sceneToRender) {
+          loop();
+          sceneToRender.render();
+        }
+      });
+
+      // Resize
+      window.addEventListener("resize", function () {
+        engine.resize();
+      });
+    </script>
+  </body>
+</html>
